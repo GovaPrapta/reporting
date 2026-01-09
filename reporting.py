@@ -41,7 +41,10 @@ st.markdown("""
 # HEADER
 # =========================================================
 st.markdown("<div class='main-title'>🤖 AI Assistant – Reporting Anak</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>Generator laporan perkembangan proyek anak (1 paragraf, variatif, 24 jam history)</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='sub-title'>Laporan 1 paragraf + catatan evaluasi (dengan jumlah project)</div>",
+    unsafe_allow_html=True
+)
 
 # =========================================================
 # INIT HISTORY (24 JAM)
@@ -64,11 +67,55 @@ def save_history(text, meta: dict):
 _prune_history()
 
 # =========================================================
-# CORE: GENERATE REPORT (1 PARAGRAF + VARIASI)
+# NOTE TEMPLATE
 # =========================================================
-def generate_project_report(nama: str, jenis: str, status: str, level: str, progres: str, bahasa: str) -> str:
+NOTE_ID = {
+    "Baik": [
+        "Bisa lanjut ke project berikutnya. Pertahankan fokus dan kemandirian yang sudah baik.",
+        "Siap melanjutkan ke tahap berikutnya. Semangat terus!",
+        "Dapat melanjutkan ke project selanjutnya. Kerja bagus!"
+    ],
+    "Cukup": [
+        "Perlu latihan lanjutan agar fokus dan ketelitian semakin meningkat.",
+        "Disarankan penguatan latihan pada bagian yang masih kurang konsisten.",
+        "Teruskan latihan agar hasil pengerjaan lebih rapi dan stabil."
+    ],
+    "Perlu Bimbingan": [
+        "Perlu pendampingan lebih intensif dan penguatan konsep pada pertemuan berikutnya.",
+        "Disarankan pengulangan materi dasar dengan pendampingan bertahap.",
+        "Perlu peningkatan fokus dan pemahaman sebelum melanjutkan ke tahap berikutnya."
+    ]
+}
+
+NOTE_EN = {
+    "Baik": [
+        "Ready to continue to the next project. Keep up the good work!",
+        "The student can proceed to the next stage with confidence."
+    ],
+    "Cukup": [
+        "Further practice is recommended to improve focus and consistency."
+    ],
+    "Perlu Bimbingan": [
+        "More intensive guidance is recommended in the next session."
+    ]
+}
+
+# =========================================================
+# UTIL JUMLAH PROJECT
+# =========================================================
+def project_count_text(jumlah, bahasa):
+    if bahasa == "Indonesia":
+        return "satu project" if jumlah == 1 else f"{jumlah} project"
+    else:
+        return "one project" if jumlah == 1 else f"{jumlah} projects"
+
+# =========================================================
+# CORE: GENERATE REPORT
+# =========================================================
+def generate_project_report(nama, jenis, status, level, progres, bahasa, jumlah_project):
     n = nama.strip().title()
     j = jenis.lower()
+    count_text = project_count_text(jumlah_project, bahasa)
 
     progres_id = {
         "Melanjutkan Project": "melanjutkan project sebelumnya",
@@ -79,109 +126,54 @@ def generate_project_report(nama: str, jenis: str, status: str, level: str, prog
         "Project Baru": "worked on a new project"
     }
 
-    # =============================
-    # PARAGRAF 1 (INDONESIA)
-    # =============================
-    id_paragraph_1 = {
+    id_paragraph = {
         "Baik": [
-            "{n} {p} pada project {j} dengan performa yang sangat baik. {n} bekerja secara mandiri, fokus selama proses pengerjaan, serta menunjukkan pemahaman konsep yang kuat sehingga project dapat berjalan dengan lancar.",
-            "{n} {p} pada project {j} dengan hasil yang sangat memuaskan. Kemandirian dan fokus {n} terlihat konsisten, dan {n} mampu menerapkan konsep dengan tepat saat menjalankan project."
+            "{n} {p} dengan mengerjakan {c} pada bidang {j} dengan performa yang sangat baik. {n} bekerja secara mandiri, fokus selama proses pengerjaan, serta mampu menyelesaikan tugas dengan hasil yang memuaskan.",
+            "Dalam sesi ini, {n} berhasil {p} dengan menyelesaikan {c} pada project {j}. Kemandirian dan konsistensi fokus {n} terlihat sangat baik."
         ],
         "Cukup": [
-            "{n} {p} pada project {j} dengan hasil yang cukup baik. Selama pengerjaan, {n} masih memerlukan arahan ringan dan penguatan fokus, namun sudah mampu mengikuti alur project dengan cukup konsisten.",
-            "{n} {p} pada project {j} dengan capaian yang cukup memadai. Ketelitian {n} masih perlu ditingkatkan, tetapi {n} tetap menunjukkan usaha dan kemauan belajar yang positif."
+            "{n} {p} dengan mengerjakan {c} pada project {j} dengan hasil yang cukup baik. {n} masih memerlukan arahan ringan, namun sudah mampu mengikuti alur pengerjaan dengan cukup konsisten.",
+            "Saat {p}, {n} mengerjakan {c} pada project {j} dan menunjukkan pemahaman dasar yang cukup baik meskipun konsistensi masih perlu ditingkatkan."
         ],
         "Perlu Bimbingan": [
-            "{n} {p} pada project {j}, namun masih mengalami beberapa kendala. Fokus dan pemahaman konsep {n} belum stabil sehingga diperlukan pendampingan lanjutan.",
-            "{n} {p} pada project {j}, tetapi pengerjaan belum optimal karena konsentrasi {n} mudah teralihkan dan masih diperlukan penguatan konsep dasar."
+            "{n} {p} dengan mengerjakan {c} pada project {j}, namun masih mengalami beberapa kendala. Fokus dan pemahaman konsep {n} belum stabil sehingga diperlukan pendampingan lanjutan.",
+            "Dalam proses {p}, {n} mengerjakan {c} pada project {j} tetapi masih membutuhkan bimbingan agar pengerjaan lebih terarah."
         ]
     }
 
-    # =============================
-    # PARAGRAF 2 (INDONESIA – ALTERNATIF)
-    # =============================
-    id_paragraph_2 = {
-        "Baik": [
-            "Dalam kegiatan ini, {n} menunjukkan kinerja yang sangat positif saat {p} pada project {j}. Kemandirian dan konsistensi fokus {n} menjadi faktor utama keberhasilan pengerjaan project.",
-            "Selama {p} pada project {j}, {n} mampu bekerja secara terstruktur dan menjaga fokus dengan baik. Hal ini membuat proses pengerjaan berjalan lancar dan hasilnya sesuai tujuan pembelajaran."
-        ],
-        "Cukup": [
-            "Saat {p} pada project {j}, {n} menunjukkan pemahaman dasar yang cukup baik. Meskipun konsistensi dan ketelitian masih perlu ditingkatkan, {n} tetap menunjukkan kemauan belajar yang baik.",
-            "Dalam proses {p} pada project {j}, {n} sudah dapat mengikuti langkah-langkah utama, namun masih membutuhkan arahan ringan agar pengerjaan lebih rapi dan konsisten."
-        ],
-        "Perlu Bimbingan": [
-            "Dalam proses {p} pada project {j}, {n} masih membutuhkan bimbingan lebih lanjut karena fokus dan pemahaman konsep belum berkembang secara optimal.",
-            "Saat {p} pada project {j}, {n} masih memerlukan pendampingan untuk menjaga konsentrasi dan memperkuat pemahaman agar pengerjaan dapat lebih terarah."
-        ]
-    }
-
-    # =============================
-    # CATATAN STATUS (INDONESIA)
-    # =============================
-    id_status_suffix = {
-        "Selesai": [
-            "Project dinyatakan selesai dan dapat diuji dengan baik.",
-            "Pengerjaan selesai dan hasilnya sesuai dengan target.",
-            "Project selesai dan berjalan sesuai yang diharapkan."
-        ],
-        "Tidak Selesai": [
-            "Project belum selesai karena masih ada bagian yang perlu diperbaiki.",
-            "Pengerjaan belum tuntas dan masih memerlukan perbaikan pada beberapa bagian.",
-            "Project belum dapat dijalankan sepenuhnya karena masih terdapat kesalahan."
-        ]
-    }
-
-    # =============================
-    # ENGLISH (1 PARAGRAPH)
-    # =============================
     en_paragraph = {
         "Baik": [
-            "{n} {p} in the {j} project with excellent performance. {n} worked independently, maintained strong focus, and demonstrated solid understanding of the applied concepts.",
-            "During the session, {n} {p} in the {j} project and showed excellent independence and consistent focus."
+            "{n} {p} by completing {c} in the {j} field with excellent performance. {n} worked independently and maintained strong focus throughout the session."
         ],
         "Cukup": [
-            "{n} {p} in the {j} project with fairly good results. Some guidance was still required, particularly to maintain focus and consistency.",
-            "{n} {p} in the {j} project and showed basic understanding, although further practice is needed for better consistency."
+            "{n} {p} by working on {c} in the {j} project with fairly good results. Some guidance was still required to maintain focus."
         ],
         "Perlu Bimbingan": [
-            "{n} {p} in the {j} project but faced several challenges. Focus and conceptual understanding still need further support.",
-            "{n} {p} in the {j} project; however, additional guidance is needed to improve focus and understanding."
-        ]
-    }
-
-    en_status_suffix = {
-        "Selesai": [
-            "The project was completed successfully and tested well.",
-            "The task was completed and met the expected goal.",
-            "The project was finished and ran as intended."
-        ],
-        "Tidak Selesai": [
-            "The project was not completed yet due to remaining issues.",
-            "The task is still unfinished and requires further correction.",
-            "The project could not run fully because some errors remain."
+            "{n} {p} by working on {c} in the {j} project but faced several challenges and required additional guidance."
         ]
     }
 
     if bahasa == "Indonesia":
         p = progres_id[progres]
-        paragraf = random.choice(id_paragraph_1[level] + id_paragraph_2[level]).format(n=n, j=j, p=p)
-        status_suffix = random.choice(id_status_suffix[status])
-        return f"{paragraf} {status_suffix}"
+        return random.choice(id_paragraph[level]).format(
+            n=n, p=p, c=count_text, j=j
+        )
     else:
         p = progres_en[progres]
         jj = "robotics" if j == "robotic" else "coding"
-        paragraf = random.choice(en_paragraph[level]).format(n=n, j=jj, p=p)
-        status_suffix = random.choice(en_status_suffix[status])
-        return f"{paragraf} {status_suffix}"
+        return random.choice(en_paragraph[level]).format(
+            n=n, p=p, c=count_text, j=jj
+        )
 
 # =========================================================
 # INPUT FORM
 # =========================================================
 st.subheader("📝 Input Laporan Proyek")
-st.markdown("<div class='small-muted'>Output laporan 1 paragraf (singkat), variatif, dan tersimpan 24 jam.</div>", unsafe_allow_html=True)
+st.markdown("<div class='small-muted'>Laporan singkat 1 paragraf dengan jumlah project.</div>", unsafe_allow_html=True)
 
 nama = st.text_input("Nama Anak", placeholder="Contoh: Dista")
 jenis = st.selectbox("Jenis Project", ["Coding", "Robotic"])
+jumlah_project = st.number_input("Jumlah Project yang Dikerjakan", min_value=1, max_value=10, value=1)
 progres = st.radio("Jenis Kegiatan", ["Melanjutkan Project", "Project Baru"], horizontal=True)
 status = st.radio("Status Project", ["Selesai", "Tidak Selesai"], horizontal=True)
 level = st.selectbox("Level Performa", ["Baik", "Cukup", "Perlu Bimbingan"])
@@ -190,7 +182,7 @@ bahasa = st.selectbox("Bahasa Laporan", ["Indonesia", "English"])
 # =========================================================
 # GENERATE REPORT
 # =========================================================
-colA, colB = st.columns([1, 1])
+colA, colB = st.columns(2)
 with colA:
     gen = st.button("🚀 Buat Laporan", use_container_width=True)
 with colB:
@@ -200,10 +192,14 @@ if gen or regen:
     if not nama.strip():
         st.warning("Nama anak wajib diisi.")
     else:
-        laporan = generate_project_report(nama, jenis, status, level, progres, bahasa)
+        laporan = generate_project_report(
+            nama, jenis, status, level, progres, bahasa, jumlah_project
+        )
+
         meta = {
             "nama": nama.strip().title(),
             "jenis": jenis,
+            "jumlah": jumlah_project,
             "progres": progres,
             "status": status,
             "level": level,
@@ -212,10 +208,16 @@ if gen or regen:
         save_history(laporan, meta)
 
         st.subheader("📄 Hasil Laporan AI")
-        st.text_area("", laporan, height=180)
+        st.text_area("", laporan, height=160)
+
+        # NOTE
+        if bahasa == "Indonesia":
+            st.info(f"📝 **Catatan:** {random.choice(NOTE_ID[level])}")
+        else:
+            st.info(f"📝 **Note:** {random.choice(NOTE_EN[level])}")
 
 # =========================================================
-# HISTORY (24 JAM)
+# HISTORY
 # =========================================================
 with st.expander("📜 Riwayat Laporan (24 Jam Terakhir)"):
     _prune_history()
@@ -224,8 +226,9 @@ with st.expander("📜 Riwayat Laporan (24 Jam Terakhir)"):
     else:
         for h in reversed(st.session_state.history):
             t = h["time"].strftime("%d-%m-%Y %H:%M")
-            meta = h.get("meta", {})
-            meta_line = f"{meta.get('jenis','-')} | {meta.get('progres','-')} | {meta.get('status','-')} | {meta.get('level','-')} | {meta.get('bahasa','-')}"
-            st.markdown(f"**{t}** — {meta_line}")
+            meta = h["meta"]
+            st.markdown(
+                f"**{t}** — {meta['nama']} | {meta['jenis']} | {meta['jumlah']} project | {meta['level']}"
+            )
             st.text(h["text"])
             st.divider()
