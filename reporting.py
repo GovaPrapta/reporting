@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-from datetime import datetime
 import os
 
 # =========================================================
@@ -9,11 +8,11 @@ import os
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 
 if not GEMINI_API_KEY:
-    st.error("API Key tidak ditemukan.")
+    st.error("API Key tidak ditemukan. Pastikan sudah setting di Streamlit Secrets.")
     st.stop()
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-3-flash-preview')
+model = genai.GenerativeModel('gemini-1.5-flash') # Gunakan model stabil
 
 # =========================================================
 # KONFIGURASI HALAMAN
@@ -35,24 +34,19 @@ st.markdown("<div class='main-title'>🤖 AI Reporting - Terpisah</div>", unsafe
 # FUNGSI GENERATE
 # =========================================================
 def generate_report_ai(nama, jenis, alat_level, materi, status, level_performa, progres, style):
-    # Logika Note otomatis sesuai permintaan kamu
     if status == "Selesai":
         note_text = "Bisa lanjut ke project berikutnya."
     else:
-        if jenis == "Coding":
-            note_text = "Bisa dilanjutkan di pertemuan selanjutnya."
-        else: # Robotic
-            note_text = "Kita coba di pertemuan selanjutnya."
+        note_text = "Bisa dilanjutkan di pertemuan selanjutnya." if jenis == "Coding" else "Kita coba di pertemuan selanjutnya."
 
     prompt = f"""
     Bertindaklah sebagai instruktur {jenis}. Buat laporan singkat satu paragraf.
-    Gunakan pola kalimat ini:
+    Ikuti pola ini:
     - Selesai: "Hari ini {nama} mampu mengerjakan projectnya dengan baik dan mandiri. Fokus dalam mengerjakan projectnya dan hasilnya sudah sesuai dengan instruksi yang diberikan oleh teacher."
-    - Belum Selesai: "Hari ini {nama} {progres} {materi}. Dimana {nama} telah [sebutkan progres teknis singkat] namun masih [sebutkan kendala teknis]."
+    - Belum Selesai: "Hari ini {nama} {progres} {materi}. Dimana {nama} telah [sebutkan progres teknis] namun masih [sebutkan kendala teknis]."
     
-    Tambahkan satu kalimat motivasi pendek (seperti: Tetap semangat, jangan menyerah) di bagian paling akhir laporan.
-
-    DATA: Nama {nama}, Materi {materi}, Status {status}, Performa {level_performa}, Alat/Level {alat_level}, Kegiatan {progres}.
+    Akhiri dengan kalimat motivasi (Tetap semangat/Jangan menyerah).
+    Data: Nama {nama}, Materi {materi}, Status {status}, Performa {level_performa}, Alat {alat_level}.
     """
 
     try:
@@ -75,8 +69,7 @@ with st.container():
         else:
             alat_level = st.selectbox("Platform Coding", ["Scratch", "Construct", "Roblox"])
         
-        materi = st.text_input("Materi Hari Ini", placeholder="Contoh: Gearbox / Game Labirin")
-        # --- RADIO BUTTON SUDAH KEMBALI DI SINI ---
+        materi = st.text_input("Materi Hari Ini")
         progres_pilihan = st.radio("Jenis Kegiatan", ["melanjutkan project", "membuat project baru"])
 
     with col2:
@@ -92,22 +85,21 @@ if st.button("🚀 Generate Laporan Terpisah", use_container_width=True):
         st.warning("Nama dan Materi harus diisi!")
     else:
         with st.spinner('Menyusun data...'):
-            # Memasukkan progres_pilihan ke dalam fungsi
             laporan_utama, catatan_instruksi = generate_report_ai(
                 nama, jenis, alat_level, materi, status, 
                 level_performa, progres_pilihan, style
             )
             
             st.divider()
-            
-            # --- BAGIAN PEMBELAJARAN HARI INI ---
             st.markdown("### 📘 Pembelajaran Hari Ini")
             st.markdown(f"<div class='report-box'>{laporan_utama}</div>", unsafe_allow_html=True)
             
-            # --- BAGIAN NOTE (DI BAWAHNYA) ---
             st.markdown("### 📋 Note / Catatan")
             st.markdown(f"<div class='note-box'>{catatan_instruksi}</div>", unsafe_allow_html=True)
             
+            with st.expander("💬 Preview Pesan WhatsApp"):
+                full_msg = f"*Laporan {jenis} - {nama}*\n\n*Pembelajaran:* \n{laporan_utama}\n\n*Note:* \n{catatan_instruksi}"
+                st.code(full_msg, language="text")
 
 st.divider()
 st.caption("© Govaa")
