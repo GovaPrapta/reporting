@@ -12,7 +12,7 @@ if not GEMINI_API_KEY:
     st.stop()
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash') # Gunakan model stabil
+model = genai.GenerativeModel('gemini-2.5-flash') # Gunakan model stabil
 
 # =========================================================
 # KONFIGURASI HALAMAN
@@ -103,3 +103,4 @@ if st.button("🚀 Generate Laporan Terpisah", use_container_width=True):
 
 st.divider()
 st.caption("© Govaa")
+
