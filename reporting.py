@@ -28,7 +28,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<div class='main-title'>🤖 AI Reporting - Terpisah</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-title'>🤖 AI Reporting - by GOVA </div>", unsafe_allow_html=True)
 
 # =========================================================
 # FUNGSI GENERATE
@@ -100,5 +100,6 @@ if st.button("🚀 Generate Laporan Terpisah", use_container_width=True):
 
 st.divider()
 st.caption("© Govaa")
+
 
 
