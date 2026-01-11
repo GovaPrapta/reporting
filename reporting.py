@@ -97,10 +97,8 @@ if st.button("🚀 Generate Laporan Terpisah", use_container_width=True):
             st.markdown("### 📋 Note / Catatan")
             st.markdown(f"<div class='note-box'>{catatan_instruksi}</div>", unsafe_allow_html=True)
             
-            with st.expander("💬 Preview Pesan WhatsApp"):
-                full_msg = f"*Laporan {jenis} - {nama}*\n\n*Pembelajaran:* \n{laporan_utama}\n\n*Note:* \n{catatan_instruksi}"
-                st.code(full_msg, language="text")
 
 st.divider()
 st.caption("© Govaa")
+
 
