@@ -80,7 +80,7 @@ with st.container():
 # =========================================================
 # PROSES GENERATE
 # =========================================================
-if st.button("🚀 Generate Laporan Terpisah", use_container_width=True):
+if st.button("🚀 Generate Gak Nih!!", use_container_width=True):
     if not nama.strip() or not materi.strip():
         st.warning("Nama dan Materi harus diisi!")
     else:
@@ -100,6 +100,7 @@ if st.button("🚀 Generate Laporan Terpisah", use_container_width=True):
 
 st.divider()
 st.caption("© Govaa")
+
 
 
 
