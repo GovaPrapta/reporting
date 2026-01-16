@@ -71,7 +71,7 @@ num_students = st.sidebar.number_input("Jumlah Murid", min_value=1, max_value=30
 # =========================================================
 # UI UTAMA
 # =========================================================
-st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 Quick AI Assistant Reporting</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 reporting AI Gova</h2>", unsafe_allow_html=True)
 
 all_student_data = []
 
@@ -159,3 +159,4 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
                     s.update(label=f"Laporan {data['nama']} Selesai!", state="complete")
                 except Exception as e:
                     st.error(f"Gagal generate {data['nama']}: {e}")
+
