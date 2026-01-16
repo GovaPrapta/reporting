@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 
 # WAJIB: Perintah pertama Streamlit
-st.set_page_config(page_title="Quick AI Reporting", layout="wide")
+st.set_page_config(page_title="Quick AI Reporting Multi-Language", layout="wide")
 
 # =========================================================
 # INISIALISASI SESSION STATE
@@ -16,15 +16,9 @@ if 'history' not in st.session_state:
 # =========================================================
 # KONFIGURASI API GEMINI
 # =========================================================
-# Ganti dengan API Key Anda atau masukkan di Streamlit Secrets
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
-
-if not GEMINI_API_KEY:
-    st.error("API Key tidak ditemukan. Pastikan sudah diatur di environment variable atau secrets.")
-    st.stop()
-
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash')
+model = genai.GenerativeModel('gemini-3-flash-preview')
 
 # =========================================================
 # FUNGSI DATA
@@ -51,9 +45,9 @@ def get_list_materi(level_pilihan):
     return sorted(list(set([m for m in list_res if str(m).strip()])))
 
 # =========================================================
-# SIDEBAR HISTORY
+# SIDEBAR
 # =========================================================
-st.sidebar.title("📜 History Laporan")
+st.sidebar.title("📜 History")
 if st.sidebar.button("🗑️ Bersihkan History"):
     st.session_state['history'] = []
 
@@ -61,9 +55,6 @@ if st.session_state['history']:
     for item in reversed(st.session_state['history']):
         with st.sidebar.expander(f"📌 {item['nama']} ({item['waktu']})"):
             st.write(item['laporan'])
-            st.caption(f"Note: {item['note']}")
-else:
-    st.sidebar.info("Belum ada riwayat.")
 
 st.sidebar.divider()
 num_students = st.sidebar.number_input("Jumlah Murid", min_value=1, max_value=30, value=1)
@@ -71,7 +62,7 @@ num_students = st.sidebar.number_input("Jumlah Murid", min_value=1, max_value=30
 # =========================================================
 # UI UTAMA
 # =========================================================
-st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 reporting AI Gova</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖ggova report</h2>", unsafe_allow_html=True)
 
 all_student_data = []
 
@@ -83,9 +74,10 @@ for i in range(num_students):
             nama = st.text_input("Nama Murid", key=f"n_{i}")
             kategori = st.selectbox("Kategori", ["Coding", "Robotic"], key=f"k_{i}")
             level = st.selectbox("Level", ["FWP 1.0", "FWP 2.0", "Robot Explorer 2.0"] if kategori == "Robotic" else ["Coding Scratch", "Coding Picto", "Coding Construct", "Coding Roblox"], key=f"l_{i}")
-            jml_p = st.selectbox("Jumlah Project", [1, 2, 3], key=f"jp_{i}")
+            lang = st.selectbox("Bahasa Laporan", ["Indonesia", "English"], key=f"lang_{i}")
 
         with c2:
+            jml_p = st.selectbox("Jumlah Project", [1, 2, 3], key=f"jp_{i}")
             daftar_materi = get_list_materi(level)
             m1 = st.selectbox(f"Materi 1", daftar_materi, key=f"m1_{i}")
             s1 = st.radio(f"Status P1", ["Selesai", "Lanjut"], key=f"s1_{i}", horizontal=True)
@@ -97,12 +89,12 @@ for i in range(num_students):
             s3 = st.radio(f"Status P3", ["Selesai", "Lanjut"], key=f"s3_{i}", horizontal=True) if jml_p == 3 else ""
 
         with c3:
-            obs = st.text_input("Sikap (menguap, semangat, ceria...)", key=f"obs_{i}")
-            det = st.text_input("Detail Teknis (nambah code, gear motor...)", key=f"det_{i}")
+            obs = st.text_input("Sikap (menguap, semangat...)", key=f"obs_{i}")
+            det = st.text_input("Detail Teknis (code, gear...)", key=f"det_{i}")
             style = st.selectbox("Gaya", ["Santai", "Formal", "Ceria"], key=f"sty_{i}")
 
         all_student_data.append({
-            "nama": nama, "kat": kategori, "lvl": level, "jp": jml_p,
+            "nama": nama, "kat": kategori, "lvl": level, "jp": jml_p, "lang": lang,
             "m1": m1, "s1": s1, "m2": m2, "s2": s2, "m3": m3, "s3": s3,
             "obs": obs, "det": det, "style": style
         })
@@ -117,46 +109,45 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
     else:
         st.divider()
         for data in active_students:
-            # 1. Logika Note (Apresiasi + Instruksi)
+            # 1. Logika Note Berdasarkan Bahasa
             last_s = data["s1"] if data["jp"] == 1 else (data["s2"] if data["jp"] == 2 else data["s3"])
-            if last_s == "Selesai":
-                note_text = "Good job! Pertahankan semangatnya, bisa lanjut ke project selanjutnya ya."
+            
+            if data["lang"] == "Indonesia":
+                note_text = "Good job! Pertahankan semangatnya, bisa lanjut ke project selanjutnya ya." if last_s == "Selesai" else "Semangat terus! Kita ulang/lanjutkan lagi di pertemuan berikutnya ya."
             else:
-                note_text = "Semangat terus! Kita ulang/lanjutkan lagi di pertemuan berikutnya ya."
+                note_text = "Good job! Keep up the spirit, you can proceed to the next project." if last_s == "Selesai" else "Keep it up! We will continue/review this in the next session."
 
-            # 2. Persiapan Info Project (Menghindari Syntax Error f-string)
+            # 2. Persiapan Info Project
             p_list = [f"{data['m1']} ({data['s1']})"]
             if data["m2"]: p_list.append(f"{data['m2']} ({data['s2']})")
             if data["m3"]: p_list.append(f"{data['m3']} ({data['s3']})")
             project_summary = ", ".join(p_list)
 
-            # 3. Prompt AI Singkat
+            # 3. Prompt AI Multi-Bahasa
             prompt = f"""
-            Buat laporan belajar 1 kalimat (maksimal 2 kalimat pendek) untuk {data['nama']} (Kelas {data['kat']}).
-            Project: {project_summary}.
-            Observasi Sikap: {data['obs']}.
-            Detail Teknis: {data['det']}.
+            Create a learning report in {data['lang']} for {data['nama']} (Class: {data['kat']}).
+            Projects: {project_summary}.
+            Observation: {data['obs']}.
+            Technical Detail: {data['det']}.
             
-            Pola: "Hari ini {data['nama']} membuat/melanjutkan... [fakta teknis] dan [fakta sikap]. [Penyemangat]."
-            Gaya: {data['style']}. Bahasa: Indonesia.
+            Rules:
+            - ONLY 1-2 short sentences.
+            - Pattern: "Today {data['nama']} made/continued... [technical fact] and [attitude]. [Encouragement]."
+            - Tone: {data['style']}.
+            - If language is Indonesia, use natural flow like: "Zane sedikit menguap tapi berhasil menyelesaikan..."
             """
 
-            with st.status(f"Proses {data['nama']}...") as s:
+            with st.status(f"Processing {data['nama']}...") as s:
                 try:
                     res = model.generate_content(prompt).text.strip()
                     st.session_state['history'].append({"nama": data["nama"], "laporan": res, "note": note_text, "waktu": datetime.now().strftime("%H:%M")})
                     
-                    # Tampilan Hasil
-                    st.subheader(f"👤 {data['nama']}")
-                    
+                    st.subheader(f"👤 {data['nama']} ({data['lang']})")
                     st.markdown("**Laporan:**")
-                    st.code(res, language="text") # Klik pojok kanan untuk copy
-                    
+                    st.code(res, language="text")
                     st.markdown("**Note:**")
-                    st.code(note_text, language="text") # Klik pojok kanan untuk copy
-                    
+                    st.code(note_text, language="text")
                     st.divider()
-                    s.update(label=f"Laporan {data['nama']} Selesai!", state="complete")
+                    s.update(label=f"Done!", state="complete")
                 except Exception as e:
-                    st.error(f"Gagal generate {data['nama']}: {e}")
-
+                    st.error(f"Error {data['nama']}: {e}")
