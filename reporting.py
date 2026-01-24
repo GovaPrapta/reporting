@@ -18,7 +18,7 @@ if 'history' not in st.session_state:
 # =========================================================
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-3-flash-preview')
+model = genai.GenerativeModel('gemini-2.0-flash')
 
 # =========================================================
 # FUNGSI DATA
@@ -151,3 +151,4 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
                     s.update(label=f"Done!", state="complete")
                 except Exception as e:
                     st.error(f"Error {data['nama']}: {e}")
+
