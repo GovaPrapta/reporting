@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 import pandas as pd
 import os
+import time # Tambahan untuk mengatasi error 429 Quota
 from datetime import datetime
 
 # WAJIB: Perintah pertama Streamlit
@@ -18,7 +19,9 @@ if 'history' not in st.session_state:
 # =========================================================
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.0-flash')
+
+# Gunakan model 1.5-flash untuk kecepatan dan limit yang lebih longgar
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # =========================================================
 # FUNGSI DATA
@@ -62,7 +65,7 @@ num_students = st.sidebar.number_input("Jumlah Murid", min_value=1, max_value=30
 # =========================================================
 # UI UTAMA
 # =========================================================
-st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖ggova report</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 ggova report</h2>", unsafe_allow_html=True)
 
 all_student_data = []
 
@@ -108,7 +111,13 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
         st.error("Mohon isi setidaknya satu nama murid!")
     else:
         st.divider()
-        for data in active_students:
+        progress_bar = st.progress(0)
+        
+        for idx, data in enumerate(active_students):
+            # --- SOLUSI ERROR 429: Jeda 4 detik antar permintaan ---
+            if idx > 0:
+                time.sleep(4) 
+            
             # 1. Logika Note Berdasarkan Bahasa
             last_s = data["s1"] if data["jp"] == 1 else (data["s2"] if data["jp"] == 2 else data["s3"])
             
@@ -123,7 +132,7 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
             if data["m3"]: p_list.append(f"{data['m3']} ({data['s3']})")
             project_summary = ", ".join(p_list)
 
-            # 3. Prompt AI Multi-Bahasa
+            # 3. Prompt AI
             prompt = f"""
             Create a learning report in {data['lang']} for {data['nama']} (Class: {data['kat']}).
             Projects: {project_summary}.
@@ -134,13 +143,17 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
             - ONLY 1-2 short sentences.
             - Pattern: "Today {data['nama']} made/continued... [technical fact] and [attitude]. [Encouragement]."
             - Tone: {data['style']}.
-            - If language is Indonesia, use natural flow like: "Zane sedikit menguap tapi berhasil menyelesaikan..."
             """
 
-            with st.status(f"Processing {data['nama']}...") as s:
+            with st.status(f"Processing {data['nama']} ({idx+1}/{len(active_students)})...") as s:
                 try:
                     res = model.generate_content(prompt).text.strip()
-                    st.session_state['history'].append({"nama": data["nama"], "laporan": res, "note": note_text, "waktu": datetime.now().strftime("%H:%M")})
+                    st.session_state['history'].append({
+                        "nama": data["nama"], 
+                        "laporan": res, 
+                        "note": note_text, 
+                        "waktu": datetime.now().strftime("%H:%M")
+                    })
                     
                     st.subheader(f"👤 {data['nama']} ({data['lang']})")
                     st.markdown("**Laporan:**")
@@ -150,5 +163,9 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
                     st.divider()
                     s.update(label=f"Done!", state="complete")
                 except Exception as e:
-                    st.error(f"Error {data['nama']}: {e}")
-
+                    if "429" in str(e):
+                        st.error(f"Quota penuh! Tunggu sebentar dan coba lagi.")
+                    else:
+                        st.error(f"Error {data['nama']}: {e}")
+            
+            progress_bar.progress((idx + 1) / len(active_students))
