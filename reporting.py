@@ -2,11 +2,11 @@ import streamlit as st
 import google.generativeai as genai
 import pandas as pd
 import os
-import time # Tambahan untuk mengatasi error 429 Quota
+import time 
 from datetime import datetime
 
 # WAJIB: Perintah pertama Streamlit
-st.set_page_config(page_title="Quick AI Reporting Multi-Language", layout="wide")
+st.set_page_config(page_title="ggova report v2.0", layout="wide")
 
 # =========================================================
 # INISIALISASI SESSION STATE
@@ -20,7 +20,7 @@ if 'history' not in st.session_state:
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Gunakan model 1.5-flash untuk kecepatan dan limit yang lebih longgar
+# Menggunakan Gemini 2.0 Flash sesuai dashboard terbaru kamu
 model = genai.GenerativeModel('gemini-2.0-flash')
 
 # =========================================================
@@ -53,6 +53,7 @@ def get_list_materi(level_pilihan):
 st.sidebar.title("📜 History")
 if st.sidebar.button("🗑️ Bersihkan History"):
     st.session_state['history'] = []
+    st.rerun()
 
 if st.session_state['history']:
     for item in reversed(st.session_state['history']):
@@ -65,7 +66,7 @@ num_students = st.sidebar.number_input("Jumlah Murid", min_value=1, max_value=30
 # =========================================================
 # UI UTAMA
 # =========================================================
-st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 ggova report</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 ggova report v2.0</h2>", unsafe_allow_html=True)
 
 all_student_data = []
 
@@ -103,7 +104,7 @@ for i in range(num_students):
         })
 
 # =========================================================
-# PROSES GENERATE
+# PROSES GENERATE (DENGAN PERBAIKAN KUOTA)
 # =========================================================
 if st.button("🚀 Generate Semua Laporan", use_container_width=True):
     active_students = [d for d in all_student_data if d["nama"]]
@@ -114,60 +115,48 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
         progress_bar = st.progress(0)
         
         for idx, data in enumerate(active_students):
-            # --- SOLUSI ERROR 429: Jeda 4 detik antar permintaan ---
+            # --- JEDA 13 DETIK (Karena limit kamu hanya 5 per menit) ---
             if idx > 0:
-                time.sleep(4) 
-            
-            # 1. Logika Note Berdasarkan Bahasa
+                with st.empty():
+                    for seconds in range(13, 0, -1):
+                        st.warning(f"⏳ Menunggu jeda aman API ({seconds}s) agar tidak error...")
+                        time.sleep(1)
+                    st.write("") # Bersihkan teks setelah selesai
+
+            # Persiapan Laporan
             last_s = data["s1"] if data["jp"] == 1 else (data["s2"] if data["jp"] == 2 else data["s3"])
-            
             if data["lang"] == "Indonesia":
                 note_text = "Good job! Pertahankan semangatnya, bisa lanjut ke project selanjutnya ya." if last_s == "Selesai" else "Semangat terus! Kita ulang/lanjutkan lagi di pertemuan berikutnya ya."
             else:
                 note_text = "Good job! Keep up the spirit, you can proceed to the next project." if last_s == "Selesai" else "Keep it up! We will continue/review this in the next session."
 
-            # 2. Persiapan Info Project
-            p_list = [f"{data['m1']} ({data['s1']})"]
-            if data["m2"]: p_list.append(f"{data['m2']} ({data['s2']})")
-            if data["m3"]: p_list.append(f"{data['m3']} ({data['s3']})")
-            project_summary = ", ".join(p_list)
+            project_summary = f"{data['m1']} ({data['s1']})"
+            if data["m2"]: project_summary += f", {data['m2']} ({data['s2']})"
+            if data["m3"]: project_summary += f", {data['m3']} ({data['s3']})"
 
-            # 3. Prompt AI
             prompt = f"""
-            Create a learning report in {data['lang']} for {data['nama']} (Class: {data['kat']}).
-            Projects: {project_summary}.
-            Observation: {data['obs']}.
-            Technical Detail: {data['det']}.
-            
-            Rules:
-            - ONLY 1-2 short sentences.
-            - Pattern: "Today {data['nama']} made/continued... [technical fact] and [attitude]. [Encouragement]."
-            - Tone: {data['style']}.
+            Create a learning report in {data['lang']} for {data['nama']}.
+            Projects: {project_summary}. Observation: {data['obs']}. Tech Detail: {data['det']}.
+            Rule: 1-2 short sentences. Tone: {data['style']}.
             """
 
             with st.status(f"Processing {data['nama']} ({idx+1}/{len(active_students)})...") as s:
                 try:
                     res = model.generate_content(prompt).text.strip()
                     st.session_state['history'].append({
-                        "nama": data["nama"], 
-                        "laporan": res, 
-                        "note": note_text, 
-                        "waktu": datetime.now().strftime("%H:%M")
+                        "nama": data["nama"], "laporan": res, "note": note_text, "waktu": datetime.now().strftime("%H:%M")
                     })
                     
-                    st.subheader(f"👤 {data['nama']} ({data['lang']})")
-                    st.markdown("**Laporan:**")
+                    st.subheader(f"👤 {data['nama']}")
                     st.code(res, language="text")
-                    st.markdown("**Note:**")
                     st.code(note_text, language="text")
                     st.divider()
-                    s.update(label=f"Done!", state="complete")
+                    s.update(label=f"Berhasil!", state="complete")
                 except Exception as e:
                     if "429" in str(e):
-                        st.error(f"Quota penuh! Tunggu sebentar dan coba lagi.")
+                        st.error("🛑 Kuota Menit (RPM) atau Harian (RPD) kamu Habis!")
+                        st.info("Berdasarkan dashboard kamu, limit hariannya hanya 20 orang. Jika sudah 20, harus tunggu besok jam 7 pagi.")
                     else:
                         st.error(f"Error {data['nama']}: {e}")
             
             progress_bar.progress((idx + 1) / len(active_students))
-
-
