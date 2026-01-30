@@ -1,28 +1,41 @@
 import streamlit as st
 import google.generativeai as genai
 import pandas as pd
-import os
-import time 
+import time
 from datetime import datetime
 
-# WAJIB: Perintah pertama Streamlit
-st.set_page_config(page_title="Quick AI Reporting Multi-Language", layout="wide")
+st.set_page_config(page_title="ggova report PRO", layout="wide")
 
 # =========================================================
-# INISIALISASI SESSION STATE
+# KONFIGURASI DUAL API KEY
 # =========================================================
-if 'history' not in st.session_state:
-    st.session_state['history'] = []
+api_keys = [
+    st.secrets.get("GEMINI_API_KEY_1"),
+    st.secrets.get("GEMINI_API_KEY_2")
+]
+
+# Fungsi untuk mencoba generate dengan API cadangan jika yang pertama gagal
+def generate_with_fallback(prompt):
+    for i, key in enumerate(api_keys):
+        if not key: continue # Skip jika key kosong
+        
+        try:
+            genai.configure(api_key=key)
+            # Menggunakan model flash terbaru
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            if "429" in str(e):
+                st.warning(f"API Key {i+1} limit/habis. Mencoba API Key berikutnya...")
+                continue # Coba key selanjutnya
+            else:
+                return f"Error: {str(e)}"
+    
+    return "❌ Semua API Key kamu sudah mencapai limit harian (20/20). Coba lagi besok jam 7 pagi."
 
 # =========================================================
-# KONFIGURASI API GEMINI (Tetap Gemini 2.0 Flash)
-# =========================================================
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash')
-
-# =========================================================
-# FUNGSI DATA (Membaca CSV)
+# FUNGSI DATA CSV (Kembali ke semula)
 # =========================================================
 @st.cache_data
 def load_all_materi():
@@ -46,114 +59,51 @@ def get_list_materi(level_pilihan):
     return sorted(list(set([m for m in list_res if str(m).strip()])))
 
 # =========================================================
-# SIDEBAR (RIWAYAT & JUMLAH MURID)
+# SIDEBAR & INPUT (Kembali ke semula)
 # =========================================================
 st.sidebar.title("📜 History")
 if st.sidebar.button("🗑️ Bersihkan History"):
     st.session_state['history'] = []
 
-if st.session_state['history']:
-    for item in reversed(st.session_state['history']):
-        with st.sidebar.expander(f"📌 {item['nama']} ({item['waktu']})"):
-            st.write(item['laporan'])
+num_students = st.sidebar.number_input("Jumlah Murid", 1, 30, 1)
 
-st.sidebar.divider()
-num_students = st.sidebar.number_input("Jumlah Murid", min_value=1, max_value=30, value=1)
-
-# =========================================================
-# UI UTAMA
-# =========================================================
-st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 ggova report</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #60a5fa;'>🤖 ggova report v2.1</h2>", unsafe_allow_html=True)
 
 all_student_data = []
-
 for i in range(num_students):
     with st.expander(f"👤 Data Murid #{i+1}", expanded=(i == 0)):
         c1, c2, c3 = st.columns([2, 2, 2])
-        
         with c1:
             nama = st.text_input("Nama Murid", key=f"n_{i}")
-            kategori = st.selectbox("Kategori", ["Coding", "Robotic"], key=f"k_{i}")
-            level = st.selectbox("Level", ["FWP 1.0", "FWP 2.0", "Robot Explorer 2.0"] if kategori == "Robotic" else ["Coding Scratch", "Coding Picto", "Coding Construct", "Coding Roblox"], key=f"l_{i}")
-            lang = st.selectbox("Bahasa Laporan", ["Indonesia", "English"], key=f"lang_{i}")
-
+            kat = st.selectbox("Kategori", ["Coding", "Robotic"], key=f"k_{i}")
+            lvl = st.selectbox("Level", ["FWP 1.0", "FWP 2.0", "Robot Explorer 2.0"] if kat == "Robotic" else ["Coding Scratch", "Coding Picto", "Coding Construct", "Coding Roblox"], key=f"l_{i}")
+            lang = st.selectbox("Bahasa", ["Indonesia", "English"], key=f"lang_{i}")
         with c2:
             jml_p = st.selectbox("Jumlah Project", [1, 2, 3], key=f"jp_{i}")
-            daftar_materi = get_list_materi(level)
-            m1 = st.selectbox(f"Materi 1", daftar_materi, key=f"m1_{i}")
+            materi_list = get_list_materi(lvl)
+            m1 = st.selectbox(f"Materi 1", materi_list, key=f"m1_{i}")
             s1 = st.radio(f"Status P1", ["Selesai", "Lanjut"], key=f"s1_{i}", horizontal=True)
-            
-            m2 = st.selectbox(f"Materi 2", daftar_materi, key=f"m2_{i}") if jml_p >= 2 else ""
-            s2 = st.radio(f"Status P2", ["Selesai", "Lanjut"], key=f"s2_{i}", horizontal=True) if jml_p >= 2 else ""
-            
-            m3 = st.selectbox(f"Materi 3", daftar_materi, key=f"m3_{i}") if jml_p == 3 else ""
-            s3 = st.radio(f"Status P3", ["Selesai", "Lanjut"], key=f"s3_{i}", horizontal=True) if jml_p == 3 else ""
-
         with c3:
-            obs = st.text_input("Sikap (menguap, semangat...)", key=f"obs_{i}")
-            det = st.text_input("Detail Teknis (code, gear...)", key=f"det_{i}")
-            style = st.selectbox("Gaya", ["Santai", "Formal", "Ceria"], key=f"sty_{i}")
-
-        all_student_data.append({
-            "nama": nama, "kat": kategori, "lvl": level, "jp": jml_p, "lang": lang,
-            "m1": m1, "s1": s1, "m2": m2, "s2": s2, "m3": m3, "s3": s3,
-            "obs": obs, "det": det, "style": style
-        })
+            obs = st.text_input("Sikap", key=f"obs_{i}")
+            det = st.text_input("Teknis", key=f"det_{i}")
+            style = st.selectbox("Gaya", ["Ceria", "Formal", "Santai"], key=f"sty_{i}")
+        
+        all_student_data.append({"nama": nama, "lang": lang, "m1": m1, "s1": s1, "obs": obs, "det": det, "style": style})
 
 # =========================================================
 # PROSES GENERATE
 # =========================================================
-if st.button("🚀 Generate Semua Laporan", use_container_width=True):
-    active_students = [d for d in all_student_data if d["nama"]]
-    if not active_students:
-        st.error("Mohon isi setidaknya satu nama murid!")
-    else:
-        st.divider()
-        progress_bar = st.progress(0)
+if st.button("🚀 Generate Semua Laporan"):
+    active = [d for d in all_student_data if d["nama"]]
+    for idx, data in enumerate(active):
+        if idx > 0:
+            time.sleep(13) # Jeda aman 5 RPM
         
-        for idx, data in enumerate(active_students):
-            # JEDA KRUSIAL: Berdasarkan dashboardmu (5 RPM), butuh 12-13 detik per murid
-            if idx > 0:
-                time.sleep(13) 
-            
-            # 1. Logika Note Berdasarkan Bahasa
-            last_s = data["s1"] if data["jp"] == 1 else (data["s2"] if data["jp"] == 2 else data["s3"])
-            if data["lang"] == "Indonesia":
-                note_text = "Good job! Pertahankan semangatnya, bisa lanjut ke project selanjutnya ya." if last_s == "Selesai" else "Semangat terus! Kita ulang/lanjutkan lagi di pertemuan berikutnya ya."
-            else:
-                note_text = "Good job! Keep up the spirit, you can proceed to the next project." if last_s == "Selesai" else "Keep it up! We will continue/review this in the next session."
-
-            # 2. Persiapan Info Project
-            p_list = [f"{data['m1']} ({data['s1']})"]
-            if data["m2"]: p_list.append(f"{data['m2']} ({data['s2']})")
-            if data["m3"]: p_list.append(f"{data['m3']} ({data['s3']})")
-            project_summary = ", ".join(p_list)
-
-            # 3. Prompt AI (Kalimat Bercerita)
-            prompt = f"""
-            Buat laporan singkat 1-2 kalimat untuk {data['nama']}. 
-            Bahasa: {data['lang']}. 
-            Project: {project_summary}. 
-            Sikap: {data['obs']}. 
-            Teknis: {data['det']}.
-            Tugas: Gabungkan data ini menjadi satu kalimat mengalir yang hangat untuk orang tua. 
-            Tone: {data['style']}.
-            """
-
-            with st.status(f"Processing {data['nama']}...") as s:
-                try:
-                    res = model.generate_content(prompt).text.strip()
-                    st.session_state['history'].append({"nama": data["nama"], "laporan": res, "note": note_text, "waktu": datetime.now().strftime("%H:%M")})
-                    
-                    st.subheader(f"👤 {data['nama']} ({data['lang']})")
-                    st.markdown("**Laporan:**")
-                    st.code(res, language="text") # Tombol Copas
-                    st.markdown("**Note:**")
-                    st.code(note_text, language="text") # Tombol Copas
-                    st.divider()
-                    s.update(label=f"Done!", state="complete")
-                except Exception as e:
-                    st.error(f"Error {data['nama']}: {e}")
-            
-            progress_bar.progress((idx + 1) / len(active_students))
-
+        prompt = f"Buat laporan singkat 1-2 kalimat untuk {data['nama']} tentang project {data['m1']} ({data['s1']}). Sikap: {data['obs']}. Teknis: {data['det']}. Bahasa: {data['lang']}. Gaya: {data['style']}."
+        
+        with st.status(f"Memproses {data['nama']}..."):
+            hasil = generate_with_fallback(prompt)
+        
+        st.subheader(f"✅ {data['nama']}")
+        st.code(hasil, language="text")
+        st.divider()
