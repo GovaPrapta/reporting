@@ -19,7 +19,7 @@ if 'history' not in st.session_state:
 # =========================================================
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.0-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # =========================================================
 # FUNGSI DATA (Membaca CSV)
@@ -156,3 +156,4 @@ if st.button("🚀 Generate Semua Laporan", use_container_width=True):
                     st.error(f"Error {data['nama']}: {e}")
             
             progress_bar.progress((idx + 1) / len(active_students))
+
